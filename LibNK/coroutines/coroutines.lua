@@ -1,0 +1,79 @@
+local addonInfo, privateVars = ...
+
+---------- init namespace ---------
+
+if not LibNK then LibNK = {} end
+if not LibNK.Coroutines then LibNK.Coroutines = {} end
+
+local internalFunc = privateVars.internalFunc
+
+local inspectAddonCurrent 	= Inspect.Addon.Current
+local inspectTimeReal 		= Inspect.Time.Real
+
+---------- init local variables ---------
+
+local _coRoutines = {}
+
+---------- library public function block ---------
+
+-- Adds a coroutine to the list of coroutines to be processed.
+-- @param info The coroutine information.
+function LibNK.Coroutines.Add(info) table.insert(_coRoutines, info) end
+
+---------- addon internalFunc function block ---------
+
+-- Processes the coroutines.
+function internalFunc.coRoutinesProcess()
+
+    local debugId
+    if nkDebug then debugId = nkDebug.traceStart(inspectAddonCurrent(), "LibNK internalFunc.coroutinesProcess") end
+
+    if #_coRoutines == 0 then return end
+
+    local currentTime = inspectTimeReal()
+    local idx = 1
+    while idx <= #_coRoutines do
+        local coroutineInfo = _coRoutines[idx]
+
+        if coroutineInfo.active then
+            local shouldExecute = true
+
+            if coroutineInfo.delay then
+                if not coroutineInfo.timeStamp then
+                    coroutineInfo.timeStamp = currentTime
+                end
+
+                if (currentTime - coroutineInfo.timeStamp) < coroutineInfo.delay then
+                    shouldExecute = false
+                else
+                    coroutineInfo.delay = nil
+                end
+            end
+
+            if shouldExecute then
+                local status, value = coroutine.resume(coroutineInfo.func, coroutineInfo.para1, coroutineInfo.para2)
+
+                if not status then
+                    local errorMsg = type(value) == 'function' and 'error in coroutine within supplied function' or 'error in coroutine: ' .. tostring(value)
+                    LibNK.Tools.Error.Display("LibNK", errorMsg, 1)
+                    coroutineInfo.active = false
+                elseif not value then
+                    coroutineInfo.active = false
+                    if coroutineInfo.callBack then coroutineInfo.callBack() end
+                elseif type(value) == "number" and value >= coroutineInfo.counter then
+                    coroutineInfo.active = false
+                    if coroutineInfo.callBack then coroutineInfo.callBack() end
+                end
+            end
+        end
+
+        if not coroutineInfo.active then
+            table.remove(_coRoutines, idx)
+        else
+            idx = idx + 1
+        end
+    end
+
+    if nkDebug then nkDebug.traceEnd(inspectAddonCurrent(), "LibNK internalFunc.coroutinesProcess", debugId) end
+
+end

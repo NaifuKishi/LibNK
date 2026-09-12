@@ -1,0 +1,212 @@
+local addonInfo, privateVars = ...
+
+---------- init namespace ---------
+
+if not LibNK then LibNK = {} end
+
+if not privateVars.uiFunctions then privateVars.uiFunctions = {} end
+
+local uiFunctions   = privateVars.uiFunctions
+local internalFunc  = privateVars.internalFunc
+local data          = privateVars.data
+
+local inspectSystemSecure = Inspect.System.Secure
+
+---------- addon internalFunc function block ---------
+
+local function _uiWindow(name, parent)
+
+  local window = LibNK.UICreateFrame("nkCanvas", name, parent)  
+  
+  if window == nil then return nil end -- event check failed
+  
+  local body = LibNK.UICreateFrame("nkFrame", name .. '.body', window)
+  local header = LibNK.UICreateFrame("nkFrame", name .. '.header', window)
+  local title = LibNK.UICreateFrame("nkText", name .. ".title", window)
+--  local closeIcon = LibNK.UICreateFrame("nkClickButton", name .. ".closeIcon", window)
+  local closeIcon = LibNK.UICreateFrame("nkTexture", name .. ".closeIcon", window)  
+
+  -- SPECIFIC FUNCTIONS
+  
+  local dragable = true
+  local closeable = true
+  local titleAlign = "left"
+  local titleOffSet = 10
+  local headerColor
+  local windowFill
+  local windowStroke
+  local windowPath = {{xProportional = 0, yProportional = 0},
+                      {xProportional = 0, yProportional = 1},
+                      {xProportional = 1, yProportional = 1},
+                      {xProportional = 1, yProportional = 0},
+                      {xProportional = 0, yProportional = 0},
+                }  
+    
+  window:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 200, 0)
+  window:SetWidth(100)
+  window:SetHeight(100)
+  
+  header:SetPoint("TOPLEFT", window, "TOPLEFT")
+  header:SetPoint("TOPRIGHT", window, "TOPRIGHT")
+  header:SetHeight(30)
+  header:SetLayer(1)
+  
+  body:SetPoint("TOPLEFT", header, "BOTTOMLEFT")
+  body:SetPoint("BOTTOMRIGHT", window, "BOTTOMRIGHT")
+
+  title:SetPoint("CENTERLEFT", header, "CENTERLEFT", 5, 0)
+  title:SetFontSize(14)
+  
+  closeIcon:SetPoint("CENTERRIGHT", header, "CENTERRIGHT", -10, 0)
+  closeIcon:SetTextureAsync("LibNK", "gfx/circle-x.png")
+  closeIcon:SetHeight(16)
+  closeIcon:SetWidth(16)
+  closeIcon:SetLayer(2)
+
+  closeIcon:EventAttach(Event.UI.Input.Mouse.Left.Down, function (self)
+    window:SetVisible(false)
+    LibNK.eventHandlers[name]["Closed"]()
+  end, closeIcon:GetName() .. ".Left.Down")  
+    
+  function window:SetTitleFontColor(r, g, b, a)
+    title:SetFontColor(r, g, b, a)
+    headerColor = {r = r, g = g, b = b, a = a}
+  end
+
+  function window:SetTitleEffect(newEffect) title:SetEffectGlow(newEffect) end
+  
+  window:EventAttach(Event.UI.Input.Mouse.Left.Down, function (self)
+    -- dummy event to prevent click through
+  end, name .. ".Left.Down")
+  
+  window:EventAttach(Event.UI.Input.Mouse.Right.Down, function (self)
+    -- dummy event to prevent click through
+  end, name .. ".Right.Down")
+  
+  header:EventAttach(Event.UI.Input.Mouse.Left.Down.Bubble, function (self)
+    if dragable == false then return end
+    if window:GetSecureMode() == 'restricted' and inspectSystemSecure() == true then return end
+    
+    self.leftDown = true
+    local mouse = Inspect.Mouse()
+    
+    self.originalXDiff = mouse.x - self:GetLeft()
+    self.originalYDiff = mouse.y - self:GetTop()
+    
+    local left, top, right, bottom = window:GetBounds()
+
+    --window:ClearAll()
+    --window:SetPoint("TOPLEFT", UIParent, "TOPLEFT", left, top)
+  end, name .. ".header.Left.Down.Bubble")
+  
+  header:EventAttach( Event.UI.Input.Mouse.Cursor.Move, function (self, _, x, y)  
+    if self.leftDown ~= true then return end
+    
+    local newX, newY = x - self.originalXDiff, y - self.originalYDiff
+    
+    if newX >= data.uiBoundLeft and newX <= data.uiBoundRight and newY + window:GetHeight() >= data.uiBoundTop and newY + window:GetHeight() <= data.uiBoundBottom then    
+      window:SetPoint("TOPLEFT", UIParent, "TOPLEFT", newX, newY)
+    end
+  end, name .. ".header.Cursor.Move")
+  
+  header:EventAttach( Event.UI.Input.Mouse.Left.Up, function (self) 
+    if self.leftDown ~= true then return end
+      self.leftDown = false
+    LibNK.eventHandlers[name]["Moved"](window:GetLeft(), window:GetTop())
+  end, name .. ".header.Left.Up")
+  
+  header:EventAttach( Event.UI.Input.Mouse.Left.Upoutside, function (self)
+    if self.leftDown ~= true then return end
+    self.leftDown = false
+    LibNK.eventHandlers[name]["Moved"](window:GetLeft(), window:GetTop())
+  end , name .. ".header.Left.Upoutside")
+  
+  local oSetVisible = window.SetVisible
+
+	function window:SetVisible(flag)
+		oSetVisible(self, flag)
+		if flag == true then LibNK.eventHandlers[name]["Shown"]() end
+	end
+ 
+  function window:SetCloseable(flag)
+    closeable = flag
+    
+    closeIcon:SetVisible(flag)
+  end
+  
+  function window:SetDragable(flag) dragable = flag end  
+
+  function window:GetContent() return body end
+
+  function window:SetTitle(newTitle)
+    title:ClearAll()
+    title:SetText(newTitle)
+    if title:GetWidth() > window:GetWidth() then title:SetWidth(window:GetWidth()) end
+    
+    if titleAlign == "center" then
+      title:SetPoint("CENTER", header, "CENTER", titleOffSet, 0)
+    elseif titleAlign == "left" then
+      title:SetPoint("CENTERLEFT", header, "CENTERLEFT", titleOffSet, 0)
+    else
+      title:SetPoint("CENTERRIGHT", header, "CENTERRIGHT", titleOffSet, 0)
+    end
+  end
+  
+  function window:SetTitleAlign(newAlign, newOffSet)
+    if newAlign == "center" or newAlign == "left" or newAlign == "right" then titleAlign = newAlign end
+    if newOffSet ~= nil then titleOffSet = tonumber(newOffSet) end
+    window:SetTitle(title:GetText())
+  end
+
+  function window:GetTitle()
+    return title
+  end
+
+  function window:GetHeader()
+    return header
+  end
+
+  function window:SetFontSize(newFontSize)
+    title:SetFontSize(newFontSize)
+    window:SetTitle(title:GetText())    
+  end
+
+	local oSetWidth, oSetHeight = window.SetWidth, window.SetHeight
+    
+  function window:SetWidth(newWidth)
+    oSetWidth(self, newWidth)
+    window:SetTitle(title:GetText())
+  end 
+  
+  function window:SetHeight(newHeight)
+    oSetHeight(self, newHeight)
+  end
+  
+  function window:SetBorderColor(newStroke)    
+    windowStroke = newStroke
+    window:SetShape(windowPath, windowFill, windowStroke)
+  end
+
+  function window:SetFillColor(newFill) 
+    windowFill = newFill
+    window:SetShape(windowPath, windowFill, windowStroke)
+  end
+
+  function window:SetColor(newFill, newStroke)
+    windowStroke = newStroke
+    windowFill = newFill
+    window:SetShape(windowPath, windowFill, windowStroke)
+  end
+
+  function window:SetTitleFont (addonId, fontName) LibNK.UI.SetFont(title, addonId, fontName) end
+  function window:SetTitleFontSize (fontSize) title:SetFontSize(fontSize) end  
+    
+  LibNK.eventHandlers[name]["Moved"], LibNK.Events[name]["Moved"] = Utility.Event.Create(addonInfo.identifier, name .. "Moved") 
+  LibNK.eventHandlers[name]["Closed"], LibNK.Events[name]["Closed"] = Utility.Event.Create(addonInfo.identifier, name .. "Closed")
+  LibNK.eventHandlers[name]["Dragable"], LibNK.Events[name]["Dragable"] = Utility.Event.Create(addonInfo.identifier, name .. "Dragable")
+  LibNK.eventHandlers[name]["Shown"], LibNK.Events[name]["Shown"] = Utility.Event.Create(addonInfo.identifier, name .. "Shown")
+    
+  return window
+end
+
+uiFunctions.NKWINDOW = _uiWindow

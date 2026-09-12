@@ -1,0 +1,146 @@
+local addonInfo, privateVars = ...
+
+---------- init namespace ---------
+
+if not LibNK then LibNK = {} end
+if not LibNK.manager then LibNK.manager = {} end
+
+local inspectMouse        = Inspect.Mouse
+local inspectSystemSecure = Inspect.System.Secure
+
+local mathFloor = math.floor
+
+---------- init local variables ---------
+				
+local _context = UI.CreateContext("nkManager")
+
+---------- local function block ---------
+
+local _buttons = {}
+local _buttonIcons = {}
+local frame = nil
+
+-- Creates and configures the main frame for the manager UI.
+-- Sets up mouse event handlers for showing/hiding the frame.
+-- @return nil
+local function createFrame()
+
+    frame = LibNK.UICreateFrame("nkFrame", "nkManagerFrame", _context)    
+    frame:SetWidth(UI.Native.MapMini:GetWidth())
+    frame:SetHeight(42)
+    frame:SetBackgroundColor(0, 0, 0, 0.5)
+    frame:SetAlpha(0) 
+    frame:SetPoint("BOTTOMLEFT", UI.Native.MapMini, "BOTTOMLEFT")
+
+    local function checkDisplay ()
+      local x, y = inspectMouse().x, inspectMouse().y
+      local frameX = frame:GetLeft()
+      local frameY = frame:GetTop()
+      local frameWidth, frameHeight = frame:GetWidth(), frame:GetHeight()
+
+      if x >= frameX and x <= frameX + frameWidth and y >= frameY and y <= frameY + frameHeight then
+        return true
+      else
+        return false
+      end
+    end
+
+    -- Show frame on mouse over
+    frame:EventAttach(Event.UI.Input.Mouse.Cursor.Move, function()
+        if checkDisplay() then
+          frame:SetAlpha(1)
+        else
+          frame:SetAlpha(0)
+        end
+    end, "LibNK.manager.UI.Input.Mouse.Cursor.Move")
+
+    frame:EventAttach(Event.UI.Input.Mouse.Cursor.Out, function()
+        if checkDisplay() then
+          frame:SetAlpha(1)
+        else
+          frame:SetAlpha(0)
+        end
+    end, "LibNK.manager.UI.Input.Mouse.Cursor.Out")
+
+end
+
+-- Updates the frame by clearing existing buttons and adding new ones based on registered buttons.
+-- @return nil
+function LibNK.manager.UpdateFrame(targetFrame)
+
+    if not frame then
+        createFrame()
+    end
+
+    local from, object, to, x, y = "TOPLEFT", frame, "TOPLEFT", 5, 5
+    local counter = 1
+
+    local width = targetFrame:GetWidth()
+
+    local maxCounter = mathFloor(width / 37)
+    local height = 42
+    local firstButton
+
+    x = (width - (maxCounter * 32) - ((maxCounter -1) * 5)) / 2    
+
+    -- Add new buttons
+    for name, buttonInfo in pairs(_buttons) do
+
+        local button
+
+        if _buttonIcons[name] == nil then
+            button = UI.CreateFrame("Texture", "LibNK.minimapButton." .. name, frame)
+            button:SetTextureAsync(buttonInfo.iconSource, buttonInfo.icon)
+            button:SetWidth(32)
+            button:SetHeight(32)
+            button:EventDetach(Event.UI.Input.Mouse.Left.Click, nil, name .. ".Click")
+            button:EventAttach(Event.UI.Input.Mouse.Left.Click, buttonInfo.callback, name .. ".Click")
+            _buttonIcons[name] = button
+        else
+            button = _buttonIcons[name]
+        end
+
+        button:SetPoint(from, object, to, x, y)
+
+        if counter == 1 then
+            firstButton = button
+        end
+
+        counter = counter + 1
+        from, object, to, x, y = "TOPLEFT", button, "TOPRIGHT", 5, 0
+
+        if counter > maxCounter then
+            counter = 1
+            from, object, to, x, y = "TOPLEFT", firstButton, "BOTTOMLEFT", 0, 5
+        end
+    end
+              
+    frame:SetHeight(height)
+end
+
+-- Registers a new button to be displayed in the manager UI.
+-- @param name The name of the button.
+-- @param iconSource The source of the icon.
+-- @param icon The icon to display.
+-- @param callBack The callback function to execute when the button is clicked.
+-- @return nil
+function LibNK.manager.RegisterButton(name, iconSource, icon, callBack)
+    
+    _buttons[name] = {icon = icon, iconSource = iconSource, callback = callBack}
+    LibNK.manager.UpdateFrame(UI.Native.MapMini)
+
+end
+
+-- Unregisters a button from the manager UI.
+-- @param name The name of the button to unregister.
+-- @return nil
+function LibNK.manager.UnregisterButton(name)
+    _buttons[name] = nil
+    LibNK.manager.UpdateFrame(UI.Native.MapMini)
+end
+
+-- Gets the frame object of the manager UI.
+-- @return The frame object.
+function LibNK.manager.GetFrame()
+  return frame
+end

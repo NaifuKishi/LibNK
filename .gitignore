@@ -1,0 +1,3 @@
+# Marker, den riftctl beim Deployen ablegt — gehoert zur lokalen Installation,
+# nicht zur Bibliothek.
+.riftctl-owned

@@ -1,0 +1,174 @@
+local addonInfo, privateVars = ...
+
+---------- init namespace ---------
+
+if not LibNK then LibNK = {} end
+
+if not privateVars.uiFunctions then privateVars.uiFunctions = {} end
+
+local uiFunctions   = privateVars.uiFunctions
+local internalFunc  = privateVars.internalFunc
+local lang          = privateVars.langTexts
+
+---------- addon internalFunc function block ---------
+
+local function _uiDialog(name, parent) 
+
+	--if LibNK.internalFunc.checkEvents (name, false) == false then return nil end
+
+	local dialog = LibNK.UICreateFrame("nkwindow", name, parent)
+	local message = LibNK.UICreateFrame ('nkText', name .. "message", dialog)
+	local leftButton = LibNK.UICreateFrame ('nkButton', name .. "leftButton", dialog)
+	local centerButton = LibNK.UICreateFrame ('nkButton', name .. "centerButton", dialog)
+	local rightButton = LibNK.UICreateFrame ('nkButton', name .. "rightButton", dialog)
+
+	local properties = {}
+
+	function dialog:SetValue(property, value)
+		properties[property] = value
+	end
+	
+	function dialog:GetValue(property)
+		return properties[property]
+	end
+	
+	dialog:SetValue("name", name)
+	dialog:SetValue("parent", parent)
+
+	--dialog:SetDragable(true)
+	dialog:SetCloseable(false)
+	--dialog:SetStrata('dialog')
+	dialog:SetTitle("")
+		
+	message:SetPoint("CENTER", dialog:GetContent(), "CENTER", 0, -30)
+	message:SetFontColor(1, 1, 1, 1)
+	message:SetFontSize(16)
+	message:SetWordwrap(true)
+	
+	leftButton:SetPoint("BOTTOMLEFT", dialog:GetContent(), "BOTTOMLEFT", 25, -15)
+	
+	leftButton:EventAttach(Event.UI.Input.Mouse.Left.Click, function ()
+		dialog:SetVisible(false)
+		LibNK.eventHandlers[name]["LeftButtonClicked"]()
+	end, name .. "_leftButton_LeftClick")
+	
+	centerButton:SetPoint("BOTTOMCENTER", dialog:GetContent(), "BOTTOMCENTER", 0, -15)
+	
+	centerButton:EventAttach(Event.UI.Input.Mouse.Left.Click, function ()
+		dialog:SetVisible(false)
+		LibNK.eventHandlers[name]["CenterButtonClicked"]()
+	end, name .. "_centerButton_LeftClick")
+	
+	rightButton:SetPoint("BOTTOMRIGHT", dialog:GetContent(), "BOTTOMRIGHT", -25, -15)
+	
+	rightButton:EventAttach(Event.UI.Input.Mouse.Left.Click, function ()
+		dialog:SetVisible(false)
+		LibNK.eventHandlers[name]["RightButtonClicked"]()
+	end, name .. "_rightButton_LeftClick")
+	
+	function dialog:SetType(dialogType)
+
+		if dialogType == "confirm" then
+			leftButton:SetText(lang.yes)
+			rightButton:SetText(lang.no)
+			leftButton:SetVisible(true)
+			rightButton:SetVisible(true)
+			centerButton:SetVisible(false)
+		elseif dialogType == "choice" then
+			leftButton:SetVisible(true)
+			centerButton:SetVisible(true)
+			rightButton:SetVisible(true)
+		else
+			centerButton:SetText(lang.ok)
+			leftButton:SetVisible(false)
+			rightButton:SetVisible(false)
+			centerButton:SetVisible(true)
+		end
+
+	end
+
+	function dialog:SetLeftButtonText(text)  leftButton:SetText(text)   end
+	function dialog:SetCenterButtonText(text) centerButton:SetText(text) end
+	function dialog:SetRightButtonText(text)  rightButton:SetText(text)  end
+	
+	function dialog:SetMessage(messageText)
+		message:ClearAll()
+		message:SetPoint("CENTER", dialog:GetContent(), "CENTER", 0, -30)		
+		message:SetText(messageText, true)
+		
+		if message:GetWidth() > ( dialog:GetWidth() - 40) then		
+			message:SetWidth(dialog:GetWidth() - 40)
+		end
+		
+		dialog:SetHeight(message:GetHeight()+120)
+	end
+
+	function dialog:SetWarn(flag)
+		if flag then
+			message:SetFontColor(1, 0 ,0 ,1)
+		else
+			message:SetFontColor(1, 1, 1, 1)
+		end
+	end
+	
+	local oSetWidth, oSetHeight = dialog.SetWidth, dialog.SetHeight
+	
+	function dialog:SetWidth(width)
+		oSetWidth(self, width)
+		dialog:SetPoint("TOPLEFT", UIParent, "TOPLEFT", (LibNK.UI.getBoundRight() / 2 ) - (dialog:GetWidth() / 2), (LibNK.UI.getBoundBottom() / 2 ) - (dialog:GetHeight() / 2))
+		message:SetWidth( width - 40)
+	end
+	
+	function dialog:SetHeight(height)
+		oSetHeight(self, height)
+		dialog:SetPoint("TOPLEFT", UIParent, "TOPLEFT", (LibNK.UI.getBoundRight() / 2 ) - (dialog:GetWidth() / 2), (LibNK.UI.getBoundBottom() / 2 ) - (dialog:GetHeight() / 2))
+		message:SetHeight( height - 120)
+	end
+
+	function dialog:SetFont(addonID, font)
+		LibNK.UI.SetFont(message, addonID, font)
+	end
+
+	function dialog:SetEffectGlow(effect)
+		message:SetEffectGlow(effect)
+	end
+
+	function dialog:SetButtonFont(addonId, font)
+		leftButton:SetFont(addonId, font)
+		rightButton:SetFont(addonId, font)
+		centerButton:SetFont(addonId, font)	
+	end
+
+	function dialog:SetButtonFillColor(newColor)
+		leftButton:SetFillColor(newColor)
+		rightButton:SetFillColor(newColor)
+		centerButton:SetFillColor(newColor)
+	end
+
+	function dialog:SetButtonLabelColor (color)
+		leftButton:SetLabelColor(color)
+		rightButton:SetLabelColor(color)
+		centerButton:SetLabelColor(color)
+	end
+
+	function dialog:SetButtonBorderColor (newColor)
+		leftButton:SetBorderColor(newColor)
+		rightButton:SetBorderColor(newColor)
+		centerButton:SetBorderColor(newColor)
+	end
+	
+	function dialog:SetButtonEffect(effect)
+		leftButton:SetEffectGlow(effect)
+		rightButton:SetEffectGlow(effect)
+		centerButton:SetEffectGlow(effect)
+	end
+
+	LibNK.eventHandlers[name]["LeftButtonClicked"], LibNK.Events[name]["LeftButtonClicked"] = Utility.Event.Create(addonInfo.identifier, name .. "LeftButtonClicked")
+	LibNK.eventHandlers[name]["RightButtonClicked"], LibNK.Events[name]["RightButtonClicked"] = Utility.Event.Create(addonInfo.identifier, name .. "RightButtonClicked")
+	LibNK.eventHandlers[name]["CenterButtonClicked"], LibNK.Events[name]["CenterButtonClicked"] = Utility.Event.Create(addonInfo.identifier, name .. "CenterButtonClicked")
+	
+	return dialog
+	
+end
+
+uiFunctions.NKDIALOG = _uiDialog

@@ -1,0 +1,529 @@
+local addonInfo, privateVars = ...
+
+---------- init namespace ---------
+
+if not LibNK then LibNK = {} end
+if not LibNK.UI then LibNK.UI = {} end
+
+if not privateVars.uiFunctions then privateVars.uiFunctions = {} end
+if not privateVars.uiNames then privateVars.uiNames = {} end
+
+if privateVars.uiContext == nil then privateVars.uiContext = UI.CreateContext("LibNK.UI") end
+
+if not privateVars.uiElements then privateVars.uiElements = {} end
+
+local data       		= privateVars.data
+local internalFunc 		= privateVars.internalFunc
+local uiFunctions		= privateVars.uiFunctions
+local uiNames    		= privateVars.uiNames
+local uiElements		= privateVars.uiElements
+
+local uiContext   		= privateVars.uiContext
+local uiTooltipContext	= nil
+
+local inspectSystemSecure 		= Inspect.System.Secure
+local inspectAddonCurrent 		= Inspect.Addon.Current
+local inspectAbilityNewDetail	= Inspect.Ability.New.Detail
+local InspectAbilityDetail		= Inspect.Ability.Detail
+
+local stringUpper				= string.upper
+local stringFormat				= string.format
+local stringLower				= string.lower
+local stringGSub				= string.gsub
+
+---------- init variables --------- 
+
+if not uiElements.messageDialog then uiElements.messageDialog = {} end
+if not uiElements.confirmDialog then uiElements.confirmDialog = {} end
+
+data.frameCount = 0
+data.canvasCount = 0
+data.textCount = 0
+data.textureCount = 0
+data.uiBoundLeft, data.uiBoundTop, data.uiBoundRight, data.uiBoundBottom = UIParent:GetBounds()
+
+---------- init local variables ---------
+
+local _fonts = {}
+
+--[[function LibNK.UI.GetStrata(layer)
+	hud
+	notify
+	dialog
+	tutorial
+	menu
+	layout
+	topmost
+	loading
+	modal
+	tooltip
+end]]
+
+-- generic ui functions to handle screen size and bounds
+
+function LibNK.UI.setupBoundCheck()
+
+	local testFrameH = LibNK.UICreateFrame ('nkFrame', "LibNK.UI.boundTestFrameH", uiContext)
+	testFrameH:SetBackgroundColor(0, 0, 0, 0)
+	testFrameH:SetPoint("TOPLEFT", UIParent, "TOPLEFT")
+	testFrameH:SetPoint("TOPRIGHT", UIParent, "TOPRIGHT", 0, 1)
+
+	testFrameH:EventAttach(Event.UI.Layout.Size, function (self)
+		data.uiBoundLeft, data.uiBoundTop, data.uiBoundRight, data.uiBoundBottom = UIParent:GetBounds()
+	end, testFrameH:GetName() .. ".UI.Layout.Size")
+
+	local testFrameV = LibNK.UICreateFrame("nkFrame", "LibNK.UI.boundTestFrameV", uiContext)
+	testFrameV:SetBackgroundColor(0, 0, 0, 0)
+	testFrameV:SetPoint("TOPLEFT", UIParent, "TOPLEFT")
+	testFrameV:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 1, 0)
+
+	testFrameV:EventAttach(Event.UI.Layout.Size, function (self)		
+		data.uiBoundLeft, data.uiBoundTop, data.uiBoundRight, data.uiBoundBottom = UIParent:GetBounds()
+	end, testFrameV:GetName() .. ".UI.Layout.Size")
+	
+end
+
+function LibNK.UI.getBoundBottom() return data.uiBoundBottom end
+function LibNK.UI.getBoundRight() return data.uiBoundRight end
+
+function LibNK.UI.showWithinBound (element, target)
+
+	local from, to, x, y
+
+	if target:GetTop() + element:GetHeight() > LibNK.UI.getBoundBottom() then
+		if element:GetLeft() + element:GetWidth() > LibNK.UI.getBoundRight() then
+			from, to, x, y = "BOTTOMRIGHT", "TOPLEFT", -5, -5
+		else
+			from, to, x, y = "BOTTOMLEFT", "BOTTOMLEFT", 5, -5
+		end
+	else
+		if target:GetLeft() + element:GetWidth() > LibNK.UI.getBoundRight() then
+			from, to, x, y = "BOTTOMRIGHT", "TOPLEFT", -5, -5
+		else
+			from, to, x, y = "TOPLEFT", "BOTTOMLEFT", -5, 5
+		end		
+	end
+	
+	if from ~= nil then
+		local left, top, right, bottom = element:GetBounds()
+		element:ClearAll()
+		element:SetPoint(from, target, to, x, y)
+		element:SetWidth(right-left)
+		element:SetHeight(bottom-top)
+	end
+
+end
+
+function LibNK.UI.reloadDialog (title)
+
+	if uiElements.reloadDialog ~= nil then
+		LibNK.Events.AddInsecure(function() 
+			uiElements.reloadDialog:SetTitle(title)
+			uiElements.reloadDialog:SetTitleAlign('center')
+			uiElements.reloadDialog:SetVisible(true)
+		end, nil, nil)
+		return
+	end
+	
+	if privateVars.uiContextSecure == nil then 
+		privateVars.uiContextSecure = UI.CreateContext("LibNK.UI.secure") 
+		privateVars.uiContextSecure:SetStrata ('topmost')
+		privateVars.uiContextSecure:SetSecureMode('restricted')
+	end
+	
+	local name = "LibNK.reloadDialog"
+	
+	uiElements.reloadDialog = LibNK.UICreateFrame("nkWindow", name, privateVars.uiContextSecure)
+	uiElements.reloadDialog:ClearAll()
+	uiElements.reloadDialog:SetSecureMode('restricted')
+	uiElements.reloadDialog:GetContent():SetSecureMode('restricted')
+	uiElements.reloadDialog:SetTitle(title)
+	uiElements.reloadDialog:SetTitleAlign('center')
+	uiElements.reloadDialog:SetWidth(400)
+	uiElements.reloadDialog:SetHeight(150)
+	uiElements.reloadDialog:SetCloseable(false)	
+	uiElements.reloadDialog:SetTitleFont(addonInfo.id, "MontserratBold")
+    uiElements.reloadDialog:SetTitleFontSize(16)
+    uiElements.reloadDialog:SetTitleEffect ( {strength = 3})
+    uiElements.reloadDialog:SetCloseable(true)
+    uiElements.reloadDialog:SetTitleFontColor(1, .8, 0, 1)
+
+	local screenWidth = UIParent:GetWidth()
+    local dialogWidth = uiElements.reloadDialog:GetWidth()
+    local offsetX = (screenWidth - dialogWidth) / 2
+    -- Position the dialog at the top middle using TOPLEFT anchor
+    uiElements.reloadDialog:SetPoint("TOPLEFT", UIParent, "TOPLEFT", offsetX, 50)
+
+    uiElements.reloadDialog:SetColor({
+        type = "gradientLinear",
+        transform = Utility.Matrix.Create(6, 0.5, math.pi / 4, 0, 0),  -- 45° rotation
+        color = {
+            {r = 0.08, g = 0.10, b = 0.15, a = 1, position = 0}, -- Start color
+            {r = 0.0549, g = 0.0706, b = 0.1059, a = 1, position = 1}  -- End color
+        }
+    },  { r = 0, g = 0, b = 0, a = 1, thickness = 1})
+	
+	local msg = LibNK.UICreateFrame("nkText", name .. ".msg", uiElements.reloadDialog:GetContent())
+	msg:SetText(privateVars.langTexts.msgReload)
+	msg:SetPoint("CENTERTOP", uiElements.reloadDialog:GetContent(), "CENTERTOP", 0, 10)
+	msg:SetFontSize(16)
+	msg:SetFontColor(1,1,1,1)
+
+	LibNK.UI.SetFont(msg, addonInfo.id, "MontserratSemiBold")
+	
+	local button = LibNK.UICreateFrame("nkButton", name .. ".button", uiElements.reloadDialog:GetContent())
+	button:SetPoint("CENTERTOP", msg, "CENTERBOTTOM", 0, 20)
+	button:SetText(privateVars.langTexts.reloadButton)
+	button:SetMacro("/reloadui")
+	button:SetFont(addonInfo.id, "MontserratSemiBold")
+    button:SetLabelColor({r = 1, g = 0.8, b = 0, a = 1})
+    button:SetEffectGlow ({ strength = 3 })
+    button:SetFillColor({ type = "solid", r = 0, g = 0, b = 0, a = .4})
+    button:SetBorderColor({ r = 0, g = 0, b = 0, a = .7, thickness = 1})
+	
+end
+
+-------- tooltips
+
+function LibNK.UI.attachItemTooltip (target, itemId, callBack)
+
+	local name = "LibNK.itemTooltip"
+
+	if privateVars.uiTooltipContext == nil then
+		privateVars.uiTooltipContext = UI.CreateContext("LibNK.UI.tooltip")
+		privateVars.uiTooltipContext:SetStrata ('topmost')
+	end
+	
+	if uiElements.itemTooltip == nil then	
+		uiElements.itemTooltip = LibNK.UICreateFrame('nkItemTooltip', name, privateVars.uiTooltipContext)
+		uiElements.itemTooltip:SetVisible(false)    
+		
+		LibNK.eventHandlers[name]["Visible"], LibNK.Events[name]["Visible"] = Utility.Event.Create(addonInfo.identifier, name .. "Visible")
+	end
+
+	if itemId == nil then
+		target:EventDetach(Event.UI.Input.Mouse.Cursor.In, nil, target:GetName() .. ".Mouse.Cursor.In")
+		target:EventDetach(Event.UI.Input.Mouse.Cursor.Out, nil, target:GetName() .. ".Mouse.Cursor.In")  
+		uiElements.itemTooltip:SetVisible(false)
+	else
+		target:EventAttach(Event.UI.Input.Mouse.Cursor.In, function (self)
+			uiElements.itemTooltip:ClearAll()
+			uiElements.itemTooltip:SetItem(itemId)
+			uiElements.itemTooltip:SetVisible(true)			
+			
+			uiElements.itemTooltip:SetPoint("TOPLEFT", target, "BOTTOMRIGHT", 5, 5)
+			LibNK.UI.showWithinBound (uiElements.itemTooltip, target)
+			
+			if callBack ~= nil then callBack(target, itemId) end
+			
+			LibNK.eventHandlers[name]["Visible"](true)
+			
+		end, target:GetName() .. ".Mouse.Cursor.In")
+  
+		target:EventAttach(Event.UI.Input.Mouse.Cursor.Out, function (self)
+			uiElements.itemTooltip:SetVisible(false)
+			LibNK.eventHandlers[name]["Visible"](false)
+			
+		end, target:GetName() .. ".Mouse.Cursor.Out") 
+	end
+	
+end
+
+function LibNK.UI.attachGenericTooltip (target, title, text)
+
+	if privateVars.uiTooltipContext == nil then
+		privateVars.uiTooltipContext = UI.CreateContext("LibNK.UI.tooltip")
+		privateVars.uiTooltipContext:SetStrata ('topmost')
+	end
+	
+	if uiElements.genericTooltip == nil then
+		uiElements.genericTooltip = LibNK.UICreateFrame('nkTooltip', 'LibNK.genericTooltip', privateVars.uiTooltipContext)
+		uiElements.genericTooltip:SetVisible(false)    
+	end
+
+	if text == nil then
+		target:EventDetach(Event.UI.Input.Mouse.Cursor.In, nil, target:GetName() .. ".Mouse.Cursor.In")
+		target:EventDetach(Event.UI.Input.Mouse.Cursor.Out, nil, target:GetName() .. ".Mouse.Cursor.In")  
+		uiElements.genericTooltip:SetVisible(false)
+	else
+		target:EventAttach(Event.UI.Input.Mouse.Cursor.In, function (self)
+			uiElements.genericTooltip:ClearAll()
+			
+			uiElements.genericTooltip:SetWidth(200)
+			if title ~= nil then 
+				uiElements.genericTooltip:SetTitle(stringGSub(title, "\n", ""))
+			else
+				uiElements.genericTooltip:SetTitle("")
+			end
+
+			uiElements.genericTooltip:SetLines({{ text = text, wordwrap = true, minWidth = 200 }})							
+			uiElements.genericTooltip:SetPoint("TOPLEFT", target, "BOTTOMRIGHT", 5, 5)
+
+			LibNK.UI.showWithinBound (uiElements.genericTooltip, target)
+			
+			uiElements.genericTooltip:SetVisible(true)			
+		end, target:GetName() .. ".Mouse.Cursor.In")
+  
+		target:EventAttach(Event.UI.Input.Mouse.Cursor.Out, function (self)
+			uiElements.genericTooltip:SetVisible(false)
+		end, target:GetName() .. ".Mouse.Cursor.Out") 
+	end
+
+end
+
+function LibNK.UI.genericTooltipSetFont (addonId, fontName)
+	if privateVars.uiTooltipContext == nil then return end
+	if uiElements.genericTooltip == nil then return end
+
+	uiElements.genericTooltip:SetFont (addonId, fontName)
+end
+
+function LibNK.UI.attachAbilityTooltip (target, abilityId)
+
+	if privateVars.uiTooltipContext == nil then
+		privateVars.uiTooltipContext = UI.CreateContext("LibNK.UI.tooltip")
+		privateVars.uiTooltipContext:SetStrata ('topmost')
+	end
+	
+	if uiElements.abilityTooltip == nil then	
+		uiElements.abilityTooltip = LibNK.UICreateFrame('nkTooltip', 'LibNK.abilityTooltip', privateVars.uiTooltipContext)
+		uiElements.abilityTooltip:SetVisible(false)    
+	end
+
+	if abilityId == nil then
+		target:EventDetach(Event.UI.Input.Mouse.Cursor.In, nil, target:GetName() .. ".Mouse.Cursor.In")
+		target:EventDetach(Event.UI.Input.Mouse.Cursor.Out, nil, target:GetName() .. ".Mouse.Cursor.In")  
+		uiElements.abilityTooltip:SetVisible(false)
+	else
+		target:EventAttach(Event.UI.Input.Mouse.Cursor.In, function (self)
+			uiElements.abilityTooltip:ClearAll()
+			local err, abilityDetails = pcall (inspectAbilityNewDetail, abilityId)
+			if err == false or abilityDetails == nil then
+				err, abilityDetails = pcall (InspectAbilityDetail, abilityId)
+				if err == false or abilityDetails == nil then
+					LibNK.Tools.Error.Display (addonInfo.identifier, "LibNK.UI.attachAbilityTooltip: unable to get details of ability with id " .. abilityId)	
+					LibNK.UI.attachAbilityTooltip (target, nil)
+					return
+				end
+			end
+			
+			uiElements.abilityTooltip:SetWidth(200)
+			uiElements.abilityTooltip:SetTitle(stringGSub(abilityDetails.name, "\n", ""))
+
+			if abilityDetails.description then	
+				uiElements.abilityTooltip:SetLines({{ text = abilityDetails.description, wordwrap = true, minWidth = 200  }})
+			else
+				uiElements.abilityTooltip:ClearLines()
+			end
+						
+			uiElements.abilityTooltip:SetPoint("TOPLEFT", target, "BOTTOMRIGHT", 5, 5)
+			LibNK.UI.showWithinBound (uiElements.abilityTooltip, target)
+			
+			uiElements.abilityTooltip:SetVisible(true)			
+		end, target:GetName() .. ".Mouse.Cursor.In")
+  
+		target:EventAttach(Event.UI.Input.Mouse.Cursor.Out, function (self)
+			uiElements.abilityTooltip:SetVisible(false)
+		end, target:GetName() .. ".Mouse.Cursor.Out") 
+	end
+end
+
+function LibNK.UI.abilityTooltipSetFont (addonId, fontName)
+	if privateVars.uiTooltipContext == nil then return end
+	if uiElements.abilityTooltip == nil then return end
+
+	uiElements.abilityTooltip:SetFont (addonId, fontName)
+end
+
+-------- font management
+
+function LibNK.UI.registerFont (addonId, name, path)
+
+	if _fonts[addonId] == nil then _fonts[addonId] = {} end
+
+	_fonts[addonId][name] = path
+
+end
+
+function LibNK.UI.SetFont (uiElement, addonId, name)	
+
+	if not _fonts[addonId] then return end
+
+	uiElement:SetFont(addonId, _fonts[addonId][name])
+
+end
+
+--------- dialogs
+
+function LibNK.UI.confirmDialog (message, yesFunc, noFunc)
+
+	local thisDialog
+
+	for idx = 1, #uiElements.confirmDialog, 1 do
+		if uiElements.confirmDialog[idx]:GetVisible() == false then
+			thisDialog = uiElements.confirmDialog[idx]
+
+			break
+		end
+	end
+
+	if thisDialog == nil then
+		if privateVars.uiDialogContext == nil then 
+			privateVars.uiDialogContext = UI.CreateContext("LibNK.UI.dialog") 
+			privateVars.uiDialogContext:SetStrata ('topmost')
+		end
+	
+		local name = "LibNKConfirmDialog." .. (#uiElements.messageDialog+1)
+	
+		thisDialog = LibNK.UICreateFrame("nkDialog", name, privateVars.uiDialogContext)
+		thisDialog:SetWarn(false)
+		thisDialog:SetLayer(2)
+		thisDialog:SetWidth(500)
+		thisDialog:SetHeight(250)
+		thisDialog:SetType('confirm')
+		
+		table.insert(uiElements.confirmDialog, thisDialog)
+	end
+	
+	thisDialog:SetMessage(message)
+	thisDialog:SetVisible(true)
+
+	Command.Event.Detach(LibNK.Events[thisDialog:GetName()].LeftButtonClicked, nil, thisDialog:GetName() .. ".LeftButtonClicked") -- detach event if was previously used
+	
+	Command.Event.Attach(LibNK.Events[thisDialog:GetName()].LeftButtonClicked, function ()
+		if yesFunc ~= nil then yesFunc() end
+	end, thisDialog:GetName() .. ".LeftButtonClicked")
+	
+	Command.Event.Detach(LibNK.Events[thisDialog:GetName()].RightButtonClicked, nil, thisDialog:GetName() .. ".RightButtonClicked") -- detach event if was previously used
+	
+	Command.Event.Attach(LibNK.Events[thisDialog:GetName()].RightButtonClicked, function ()
+		if noFunc ~= nil then noFunc() end
+	end, thisDialog:GetName() .. ".RightButtonClicked")
+
+	return thisDialog
+	    
+end
+
+-- choiceDialog: left = option A, center = cancel, right = option B
+function LibNK.UI.choiceDialog(message, leftLabel, leftFunc, rightLabel, rightFunc)
+
+	if not uiElements.choiceDialog then uiElements.choiceDialog = {} end
+
+	local thisDialog
+
+	for idx = 1, #uiElements.choiceDialog do
+		if uiElements.choiceDialog[idx]:GetVisible() == false then
+			thisDialog = uiElements.choiceDialog[idx]
+			break
+		end
+	end
+
+	if thisDialog == nil then
+		if privateVars.uiDialogContext == nil then
+			privateVars.uiDialogContext = UI.CreateContext("LibNK.UI.dialog")
+			privateVars.uiDialogContext:SetStrata('topmost')
+		end
+
+		local name = "LibNKChoiceDialog." .. (#uiElements.choiceDialog + 1)
+		thisDialog = LibNK.UICreateFrame("nkDialog", name, privateVars.uiDialogContext)
+		thisDialog:SetWarn(false)
+		thisDialog:SetLayer(2)
+		thisDialog:SetWidth(500)
+		thisDialog:SetType('choice')
+		table.insert(uiElements.choiceDialog, thisDialog)
+	end
+
+	thisDialog:SetMessage(message)
+	thisDialog:SetLeftButtonText(leftLabel)
+	thisDialog:SetCenterButtonText("Cancel")
+	thisDialog:SetRightButtonText(rightLabel)
+	thisDialog:SetHeight(220)
+	thisDialog:SetVisible(true)
+
+	local dname = thisDialog:GetName()
+
+	Command.Event.Detach(LibNK.Events[dname].LeftButtonClicked,   nil, dname .. ".LeftButtonClicked")
+	Command.Event.Detach(LibNK.Events[dname].CenterButtonClicked, nil, dname .. ".CenterButtonClicked")
+	Command.Event.Detach(LibNK.Events[dname].RightButtonClicked,  nil, dname .. ".RightButtonClicked")
+
+	Command.Event.Attach(LibNK.Events[dname].LeftButtonClicked, function()
+		if leftFunc then leftFunc() end
+	end, dname .. ".LeftButtonClicked")
+
+	Command.Event.Attach(LibNK.Events[dname].CenterButtonClicked, function()
+		-- cancel — no action
+	end, dname .. ".CenterButtonClicked")
+
+	Command.Event.Attach(LibNK.Events[dname].RightButtonClicked, function()
+		if rightFunc then rightFunc() end
+	end, dname .. ".RightButtonClicked")
+
+	return thisDialog
+end
+
+function LibNK.UI.messageDialog (message, okFunc)
+
+	local thisDialog
+
+	for idx = 1, #uiElements.messageDialog, 1 do
+		if uiElements.messageDialog[idx]:GetVisible() == false then
+			thisDialog = uiElements.messageDialog[idx]
+			break
+		end
+	end
+	
+	if thisDialog == nil then
+		if privateVars.uiDialogContext == nil then 
+			privateVars.uiDialogContext = UI.CreateContext("LibNK.UI.dialog") 
+			privateVars.uiDialogContext:SetStrata ('topmost')
+		end
+		
+		local name = "LibNKMessageDialog." .. LibNK.Tools.UUID ()
+	
+		thisDialog = LibNK.UICreateFrame("nkDialog", name, privateVars.uiDialogContext)
+		thisDialog:SetWarn(false)
+		thisDialog:SetLayer(2)
+		thisDialog:SetWidth(500)
+		thisDialog:SetHeight(250)
+		thisDialog:SetType('message')
+		
+		table.insert(uiElements.messageDialog, thisDialog)
+	end
+  
+	thisDialog:SetMessage(message)
+	thisDialog:SetVisible(true)
+	
+	Command.Event.Detach(LibNK.Events[thisDialog:GetName()].CenterButtonClicked, nil, thisDialog:GetName() .. ".CenterButtonClicked") -- detach event if was previously used
+	
+	if okFunc ~= nil then
+		Command.Event.Attach(LibNK.Events[thisDialog:GetName()].CenterButtonClicked, function ()
+			okFunc()
+		end, thisDialog:GetName() .. ".CenterButtonClicked")
+	end
+
+	return thisDialog
+	
+end
+
+-------- ui element creation
+
+function LibNK.UICreateFrame (frameType, name, parent)
+
+	if frameType == nil or name == nil or parent == nil then
+		LibNK.Tools.Error.Display (addonInfo.identifier, stringFormat("LibNK.UICreateFrame - invalid number of parameters\nexpecting: type of frame (string), name of frame (string), parent of frame (object)\nreceived: %s, %s, %s", frameType, name, parent))
+		return
+	end
+
+	local uiObject = nil
+	local checkFrameType = stringUpper(frameType) 
+	local func = uiFunctions[checkFrameType]
+
+	if func == nil then
+		LibNK.Tools.Error.Display (addonInfo.identifier, stringFormat("LibNK.UICreateFrame - unknown frame type [%s]", frameType))
+	else
+		uiObject = func(name, parent)
+	end
+
+	return uiObject
+
+end

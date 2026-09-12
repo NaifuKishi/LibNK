@@ -1,0 +1,78 @@
+Identifier = "LibNK"
+Name = "LibNK"
+Description = "UI and tools library for nkUI, LibMap and LibQB. Forked from LibEKL 1.0.6; LibEKL itself stays untouched for its existing consumers."
+
+Author = "NaifuKishi"
+Email = "rift@naifukishi.com"
+
+Version = "2.0.0"
+Environment = "4.0"
+
+RunOnStartup = {
+  "main.lua",
+
+  "tools/lang.lua",
+
+  "locales/localizationDE.lua",
+  "locales/localizationFR.lua",
+  "locales/localizationEN.lua",
+  
+
+  "coroutines/coroutines.lua",
+
+  "events/events.lua",
+
+
+  "manager/manager.lua",
+
+  "art/theme.lua",
+
+  "strings/strings.lua",
+
+  "tools/color.lua",
+  "tools/error.lua",
+  "tools/math.lua",
+  "tools/settings.lua",
+  "tools/table.lua",
+  "tools/uuid.lua",
+  "tools/gfx.lua",
+
+  "zip/encdec.lua",
+  "zip/zip.lua",
+
+  "ui/ui.lua",
+  "ui/button/button.lua",
+  "ui/button/clickButton.lua",  
+  "ui/button/actionButton.lua",
+
+  "ui/default/canvas.lua",
+  "ui/default/frame.lua",
+  "ui/default/text.lua",
+  "ui/default/texture.lua",
+  "ui/form/checkbox.lua",
+  "ui/form/combo.lua",
+  "ui/form/slider.lua",
+  "ui/form/textfield.lua",
+  "ui/menu/menu.lua",
+  "ui/menu/menuEntry.lua",
+  "ui/pane/scrollbox.lua",
+  "ui/pane/scrollpane.lua",
+  "ui/pane/tabPane.lua",
+  "ui/tools/progressBar.lua",
+  "ui/tooltip/itemTooltip.lua",
+  "ui/tooltip/tooltip.lua",
+  "ui/window/dialog.lua",
+  "ui/window/window.lua",
+  "ui/window/windowElement.lua",
+  
+}
+
+Embed = {
+  ["Libs/LibAsyncTextures"] = true,
+}
+
+Dependencies = {
+  LibAsyncTextures = {"required", "before"},
+}
+
+SavedVariables = {}
