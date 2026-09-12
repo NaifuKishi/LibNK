@@ -17,6 +17,39 @@ local itemCache = {}
 
 ---------- addon internalFunc function block ---------
 
+
+-- LibEKL.items was referenced here but never existed anywhere in the library, so
+-- the tooltip died on its first line of content: "attempt to index field 'items'
+-- (a nil value)", swallowed by the surrounding coroutine and reported as a FATAL
+-- ERROR in chat. It has therefore never rendered. LibEKL cannot be fixed - it is
+-- frozen for its existing consumers - so the replacement lives here.
+--
+-- The colours are the ones LibEKL.Inventory.GetItemColor used, converted to the
+-- array shape SetFontColor is called with; that function returned {r=,g=,b=},
+-- which would have failed here as well. inventory/ is not carried over, so the
+-- table is local.
+--
+-- translateRiftCategory and getRessource have no data source at all. They return
+-- nil, which makes the guard below skip the category line rather than crash. The
+-- item tooltip's real home is still open (see X2 in the cross-library review):
+-- either nkUI on LibInventory data, or LibInventory itself.
+local ITEM_RARITY_COLOR = {
+	sellable     = { 0.616, 0.616, 0.616, 1 },
+	uncommon     = { 0.118, 1.000, 0.000, 1 },
+	rare         = { 0.000, 0.439, 0.867, 1 },
+	epic         = { 0.639, 0.208, 0.933, 1 },
+	relic        = { 1.000, 0.647, 0.000, 1 },
+	transcendent = { 1.000, 0.500, 0.000, 1 },
+	quest        = { 0.843, 0.796, 0.000, 1 },
+}
+local ITEM_RARITY_DEFAULT = { 1, 1, 1, 1 }
+
+local items = {
+	getRarityColor      = function(rarity) return ITEM_RARITY_COLOR[rarity] or ITEM_RARITY_DEFAULT end,
+	translateRiftCategory = function() return nil end,
+	getRessource        = function() return nil end,
+}
+
 local function _uiItemTooltip(name, parent) 
 
 	--if LibNK.internalFunc..checkEvents (name, true) == false then return nil end
@@ -278,11 +311,11 @@ local function _uiItemTooltip(name, parent)
 		
 		height = height + title:GetHeight()
 		
-		local color = LibNK.items.getRarityColor ("uncommon")
+		local color = items.getRarityColor ("uncommon")
 		
 		if details.rarity ~= nil then
-			color = LibNK.items.getRarityColor (details.rarity)
-			if color == nil then color = LibNK.items.getRarityColor ("trash") end
+			color = items.getRarityColor (details.rarity)
+			if color == nil then color = items.getRarityColor ("trash") end
 		end
 		
 		title:SetFontColor (color[1], color[2], color[3], color[4])
@@ -306,13 +339,13 @@ local function _uiItemTooltip(name, parent)
 
 		local riftSlot, itemTypeText = nil
 		
-		--if LibNK.items.getRessource ('riftCategoryToType', details.category) ~= nil then riftSlot = LibNK.items.getRessource ('riftCategoryToType', details.category) end
+		--if items.getRessource ('riftCategoryToType', details.category) ~= nil then riftSlot = items.getRessource ('riftCategoryToType', details.category) end
 
-		if LibNK.items.translateRiftCategory (details.category) ~= nil then riftSlot = LibNK.items.translateRiftCategory (details.category) end
+		if items.translateRiftCategory (details.category) ~= nil then riftSlot = items.translateRiftCategory (details.category) end
 		
 		if riftSlot ~= nil then
 		
-		  itemTypeText = LibNK.items.getRessource ('itemTypeTranslation', riftSlot)
+		  itemTypeText = items.getRessource ('itemTypeTranslation', riftSlot)
 			
 			if itemTypeText == nil then
 				LibNK.Tools.Error.Display (addonInfo.toc.Identifier, stringFormat("itemTooltip could not get item type for rift slot %s", riftSlot), 2)
