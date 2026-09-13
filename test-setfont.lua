@@ -21,7 +21,7 @@ Inspect, Command, Utility, UI, Event, System =
 UIParent = stub"UIParent"
 dump = function() end
 
-assert(loadfile("LibNK/ui/ui.lua"))({ id = "LibNK", identifier = "LibNK", toc = {} },
+assert(loadfile("ui/ui.lua"))({ id = "LibNK", identifier = "LibNK", toc = {} },
   { internalFunc = {}, data = {}, uiElements = {}, events = {} })
 
 -- Meldeweg abfangen
@@ -104,11 +104,11 @@ print("Registrierte Schriftdateien liegen auch wirklich da")
 -- die Warnungen oben greifen hier nicht. Sichtbar wurde es erst im Spiel, als
 -- die nkClickButton-Beschriftungen als leere Kaesten erschienen.
 do
-  local main = assert(io.open("LibNK/main.lua")):read("*a")
+  local main = assert(io.open("main.lua")):read("*a")
   local n = 0
   for path in main:gmatch('registerFont%s*%([^,]+,%s*"[^"]+"%s*,%s*"([^"]+)"') do
     n = n + 1
-    local fh = io.open("LibNK/" .. path)
+    local fh = io.open(path)
     check("vorhanden: " .. path, fh ~= nil)
     if fh then fh:close() end
   end

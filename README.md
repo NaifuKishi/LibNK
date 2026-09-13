@@ -39,7 +39,7 @@ entfernt.
 ## Prüfung ohne Spiel
 
 ```sh
-luajit test-load.lua LibNK        # laedt alle RunOnStartup-Dateien gegen einen Rift-Stub
+luajit test-load.lua              # laedt alle RunOnStartup-Dateien gegen einen Rift-Stub
 luajit test-setfont.lua           # UI.SetFont: benennt die Ursache, wirft aber nie
-../check-lua-compat.sh LibNK      # Syntax nicht neuer als Lua 5.1
+../check-lua-compat.sh .          # Syntax nicht neuer als Lua 5.1
 ```

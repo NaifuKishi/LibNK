@@ -17,7 +17,7 @@ Inspect, Command, Utility, UI, Event, System = stub"Inspect", stub"Command", stu
 dump = function() end
 UIParent = stub"UIParent"
 
-local dir = arg[1]
+local dir = arg[1] or "."   -- Addon liegt im Repo-Wurzelverzeichnis
 local toc = io.open(dir .. "/RiftAddon.toc"):read("*a")
 local body = toc:match("RunOnStartup%s*=%s*{(.-)\n}")
 local files = {}

@@ -21,8 +21,10 @@ fi
 
 rm -rf "$TARGET"
 mkdir -p "$TARGET"
-cp -r "$HERE/LibNK/." "$TARGET/"
-rm -rf "$TARGET/.git"
+# Quelle ist das Repo-Wurzelverzeichnis; die Testskripte und dieses Skript
+# selbst gehen mit ins Paket, wie LibQB es mit seiner README haelt.
+cp -r "$HERE/." "$TARGET/"
+rm -rf "$TARGET/.git" "$TARGET/.gitignore"
 echo "deployt: $TARGET"
 
 if [ "${1:-}" = "--reload" ]; then
