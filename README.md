@@ -40,5 +40,6 @@ entfernt.
 
 ```sh
 luajit test-load.lua LibNK        # laedt alle RunOnStartup-Dateien gegen einen Rift-Stub
+luajit test-setfont.lua           # UI.SetFont: benennt die Ursache, wirft aber nie
 ../check-lua-compat.sh LibNK      # Syntax nicht neuer als Lua 5.1
 ```

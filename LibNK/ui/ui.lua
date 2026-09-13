@@ -45,6 +45,7 @@ data.uiBoundLeft, data.uiBoundTop, data.uiBoundRight, data.uiBoundBottom = UIPar
 ---------- init local variables ---------
 
 local _fonts = {}
+local _fontWarnings = {}
 
 --[[function LibNK.UI.GetStrata(layer)
 	hud
@@ -347,7 +348,34 @@ end
 
 function LibNK.UI.SetFont (uiElement, addonId, name)	
 
-	if not _fonts[addonId] then return end
+	-- Schlug frueher still fehl: der Text erschien in der Standardschrift, ohne
+	-- jede Meldung. Beide Faelle benennen die Ursache jetzt einmal je addonId und
+	-- Fontname. Der Schluessel entsteht erst im Warnzweig und ueber tostring -
+	-- addonId ist nicht zwingend ein String (SetTextFont reicht durch, was der
+	-- Aufrufer gibt), und eine Verkettung wuerde hier genau den harten Fehler
+	-- ausloesen, den diese Funktion nie werfen darf.
+
+	if not _fonts[addonId] then
+
+		local key = tostring(addonId) .. "." .. tostring(name)
+		if _fontWarnings[key] == nil then
+			_fontWarnings[key] = true
+			LibNK.Tools.Error.Display ('LibNK.UI.SetFont', stringFormat("no fonts registered for addonId '%s', font '%s' not set", tostring(addonId), tostring(name)), 3)
+		end
+
+		return
+	end
+
+	if _fonts[addonId][name] == nil then
+
+		local key = tostring(addonId) .. "." .. tostring(name)
+		if _fontWarnings[key] == nil then
+			_fontWarnings[key] = true
+			LibNK.Tools.Error.Display ('LibNK.UI.SetFont', stringFormat("font '%s' is not registered for addonId '%s', font not set", tostring(name), tostring(addonId)), 3)
+		end
+
+		return
+	end
 
 	uiElement:SetFont(addonId, _fonts[addonId][name])
 
