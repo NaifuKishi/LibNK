@@ -97,6 +97,24 @@ for _, case in ipairs {
   check(case.label .. ": wirft nicht", ok, tostring(err))
 end
 
+print("Registrierte Schriftdateien liegen auch wirklich da")
+-- Der Fork hat den Pfad umbenannt, die Datei aber nicht: MontserratSemiBold
+-- zeigte auf fonts/LibNK-Montserrat-SemiBold.ttf, auf der Platte lag noch
+-- LibEKL-... . SetFont findet den Eintrag, reicht ihn weiter und schweigt -
+-- die Warnungen oben greifen hier nicht. Sichtbar wurde es erst im Spiel, als
+-- die nkClickButton-Beschriftungen als leere Kaesten erschienen.
+do
+  local main = assert(io.open("LibNK/main.lua")):read("*a")
+  local n = 0
+  for path in main:gmatch('registerFont%s*%([^,]+,%s*"[^"]+"%s*,%s*"([^"]+)"') do
+    n = n + 1
+    local fh = io.open("LibNK/" .. path)
+    check("vorhanden: " .. path, fh ~= nil)
+    if fh then fh:close() end
+  end
+  check("sechs Schriften registriert", n == 6, n .. " gefunden")
+end
+
 print("")
 if failed == 0 then print("alle Pruefungen bestanden") else print(failed .. " Pruefung(en) fehlgeschlagen") end
 os.exit(failed == 0 and 0 or 1)
