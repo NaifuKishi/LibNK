@@ -47,6 +47,17 @@ data.uiBoundLeft, data.uiBoundTop, data.uiBoundRight, data.uiBoundBottom = UIPar
 local _fonts = {}
 local _fontWarnings = {}
 
+-- Eingebettet erreicht eine Bibliothek ihre eigenen mitgelieferten Dateien nicht:
+-- Rift loest Asset-Pfade nur im Verzeichnisbaum des Host-Addons auf, und dessen
+-- Libs/ ist davon ausgenommen. Gemessen: "fonts/x.ttf" unter der Host-Id geht,
+-- "Libs/LibNK/fonts/x.ttf" und "nkUI/Libs/LibNK/fonts/x.ttf" gehen beide nicht,
+-- und die eigene Id der Bibliothek hat eingebettet gar keinen Dateinamensraum.
+--
+-- Der Verbraucher sagt deshalb einmal, unter welcher Id seine Schriften liegen.
+-- Ohne diesen Aufruf bleibt es bei der eigenen Id, also laeuft der eigenstaendige
+-- Betrieb unveraendert weiter.
+local _assetOwner = nil
+
 --[[function LibNK.UI.GetStrata(layer)
 	hud
 	notify
@@ -338,6 +349,15 @@ end
 
 -------- font management
 
+function LibNK.UI.SetAssetOwner (addonId)
+	_assetOwner = addonId
+	_fontWarnings = {}   -- alte Warnungen galten der vorigen Id
+end
+
+function LibNK.UI.GetAssetOwner ()
+	return _assetOwner or addonInfo.id
+end
+
 function LibNK.UI.registerFont (addonId, name, path)
 
 	if _fonts[addonId] == nil then _fonts[addonId] = {} end
@@ -347,6 +367,12 @@ function LibNK.UI.registerFont (addonId, name, path)
 end
 
 function LibNK.UI.SetFont (uiElement, addonId, name)	
+
+	-- Eigene Widgets der Bibliothek kommen mit ihrer eigenen Id herein; die zeigt
+	-- eingebettet auf nichts. Aufrufe des Verbrauchers bleiben unberuehrt.
+	if _assetOwner ~= nil and addonId == addonInfo.id then
+		addonId = _assetOwner
+	end
 
 	-- Schlug frueher still fehl: der Text erschien in der Standardschrift, ohne
 	-- jede Meldung. Beide Faelle benennen die Ursache jetzt einmal je addonId und

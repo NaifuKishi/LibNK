@@ -97,6 +97,45 @@ for _, case in ipairs {
   check(case.label .. ": wirft nicht", ok, tostring(err))
 end
 
+print("Asset-Owner: eigene Id wird auf den Verbraucher abgebildet")
+do
+  -- Der Verbraucher registriert unter SEINER Id, die Bibliothek beschriftet ihre
+  -- eigenen Widgets weiterhin mit addonInfo.id - eingebettet muss daraus die Id
+  -- des Verbrauchers werden, sonst findet Rift die Datei nicht.
+  LibNK.UI.registerFont("LibNK", "MontserratBold", "fonts/Montserrat-Bold.ttf")
+  LibNK.UI.registerFont("nkUI", "MontserratBold", "fonts/nkUI-Montserrat-Bold.ttf")
+
+  local w = widget()
+  LibNK.UI.SetFont(w, "LibNK", "MontserratBold")
+  check("ohne Owner: eigene Registry", w.applied == "fonts/Montserrat-Bold.ttf",
+    tostring(w.applied))
+
+  LibNK.UI.SetAssetOwner("nkUI")
+  check("GetAssetOwner meldet den Verbraucher", LibNK.UI.GetAssetOwner() == "nkUI")
+
+  local w2 = widget()
+  LibNK.UI.SetFont(w2, "LibNK", "MontserratBold")
+  check("mit Owner: Datei des Verbrauchers", w2.applied == "fonts/nkUI-Montserrat-Bold.ttf",
+    tostring(w2.applied))
+
+  local w3 = widget()
+  LibNK.UI.SetFont(w3, "nkUI", "MontserratBold")
+  check("Aufruf des Verbrauchers bleibt unberuehrt",
+    w3.applied == "fonts/nkUI-Montserrat-Bold.ttf", tostring(w3.applied))
+
+  local n = warnCount()
+  local w4 = widget()
+  LibNK.UI.SetFont(w4, "LibNK", "GibtEsNichtBeimOwner")
+  check("unbekannter Name beim Owner warnt", warnCount() == n + 1)
+  check("und setzt nichts", w4.calls == 0)
+
+  LibNK.UI.SetAssetOwner(nil)
+  local w5 = widget()
+  LibNK.UI.SetFont(w5, "LibNK", "MontserratBold")
+  check("zurueckgesetzt: wieder eigene Registry",
+    w5.applied == "fonts/Montserrat-Bold.ttf", tostring(w5.applied))
+end
+
 print("Registrierte Schriftdateien liegen auch wirklich da")
 -- Der Fork hat den Pfad umbenannt, die Datei aber nicht: MontserratSemiBold
 -- zeigte auf fonts/LibNK-Montserrat-SemiBold.ttf, auf der Platte lag noch
